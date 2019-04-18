@@ -1,0 +1,100 @@
+---
+title: "Assignment 3"
+subtitle: "CS 750 Machine Learning"
+author: "Ethan Paulsen"
+date: "February 26, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Problem 1  
+
+Features:  
+  $X_{1} = hours\_studied = 40$  
+  $X_{2} = average\_gpa = 2.0$  
+  
+Coefficients:  
+  $\hat{\beta_{0}} = -6$  
+  $\hat{\beta_{1}} = -0.1$  
+  $\hat{\beta_{2}} = 1$  
+  
+$P(x) = \frac{e^{\hat{\beta_{0}} + \hat{\beta_{1}}X_{1} + \hat{\beta_{2}}X_{2}}}{ 1 + e^{ \hat{\beta_{0}} + \hat{\beta_{1}}X_{1} + \hat{\beta_{2}}X_{2}}}$  
+
+By inputting our values into $P(x)$, we get the equation $\frac{e^{-6 -4 + 2}}{1 + e^{-6 + 4 - 2}}$, giving us a probability of 0.000335, or around 0.0355% chance.
+
+#Problem 2
+Note: Test set contains 60% T, 40% F  
+$TPR, Recall = TP/(TP+FN)$  
+$TNR, Specificity = TN/(FP+TN)$  
+$FPR = FP/(FP+TN)$
+$Precision = TP/(TP + FP)$
+
+|Statisitic| Cls. T | Cls. F | Cls. C | Cls. W |
+|--------|--------|--------|--------|--------|
+| Recall |1.0     |0       |1.0     |0.0     |
+| TPR    |1.0     |0       |1.0     |0.0     |
+| FPR    |1.0     |0       |0       |1.0     |
+| TNR    |0       |1.0     |1.0     |0.0     |
+|Specificity|0    |1.0     |1.0     |0.0     |
+|Precision|0.6    |0       |1.0     |0.0     |
+
+#Problem 5
+
+As it stands, there is no error with your code. The issue that you are only using 10 trials. As illustrated, here is the ouput from the current code:
+```{r prb5, echo=FALSE}
+set.seed(1984)
+population <- data.frame(year=seq(1790,1970,10),pop=c(uspop))
+population.train <- population[1:nrow(population) - 1,]
+population.test <- population[nrow(population),]
+E <- c() #Prediciton errors of the different models
+for(i in 1:10){
+  pop.lm <- lm(pop ~ year, data = dplyr::sample_n(population.train, 8))
+  e <- predict(pop.lm, population.test) - population.test$pop
+  E <- c(E,e)
+}
+cat(glue::glue("MSE:         {mean(E^2)}\n",
+               "Bias^2:      {mean(E)^2}\n",
+               "Var:         {var(E)}\n",
+               "Bias^2+Var:  {mean(E)^2 + var(E)}"))
+```
+The MSE is off from the bias^2 + variance. However, as the amount of trials is increased, the difference between the MSE and the Bias^2 + var becomes smaller. Here is an example at 100 trials:
+```{r prob5Answer, echo=FALSE}
+
+set.seed(1984)
+population <- data.frame(year=seq(1790,1970,10),pop=c(uspop))
+population.train <- population[1:nrow(population) - 1,]
+population.test <- population[nrow(population),]
+E <- c() #Prediciton errors of the different models
+for(i in 1:100){
+  pop.lm <- lm(pop ~ year, data = dplyr::sample_n(population.train, 8))
+  e <- predict(pop.lm, population.test) - population.test$pop
+  E <- c(E,e)
+}
+cat(glue::glue("MSE:         {mean(E^2)}\n",
+               "Bias^2:      {mean(E)^2}\n",
+               "Var:         {var(E)}\n",
+               "Bias^2+Var:  {mean(E)^2 + var(E)}"))
+```
+And here is an example of 1000 trials:
+```{r prob5Answer2, echo=FALSE}
+
+set.seed(1984)
+population <- data.frame(year=seq(1790,1970,10),pop=c(uspop))
+population.train <- population[1:nrow(population) - 1,]
+population.test <- population[nrow(population),]
+E <- c() #Prediciton errors of the different models
+for(i in 1:1000){
+  pop.lm <- lm(pop ~ year, data = dplyr::sample_n(population.train, 8))
+  e <- predict(pop.lm, population.test) - population.test$pop
+  E <- c(E,e)
+}
+cat(glue::glue("MSE:         {mean(E^2)}\n",
+               "Bias^2:      {mean(E)^2}\n",
+               "Var:         {var(E)}\n",
+               "Bias^2+Var:  {mean(E)^2 + var(E)}"))
+```
+
+As you can see, the MSE and the Bias^2 + var are almost identical, therefore proving it wasn't a coding error, but a subpar amount of trials being run to achieve the answer.
