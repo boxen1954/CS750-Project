@@ -1,0 +1,23 @@
+---
+title: "Project Deliverable"
+author: "Ping Ng Chong, Haiyao Ni, Ethan Paulsen"
+date: "April 16, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r dataset}
+  library(dplyr)
+  x <- read.csv("spaceDataset.csv")
+  data_frame = data.frame(x)
+  data_frame$Time <- NULL
+  data_frame$Priority <- NULL
+  data_frame$Status <- NULL
+  data_frame$Comments <- NULL
+  data_frame$X1 <- nrow(1:data_frame)
+  print(colnames(data_frame))
+  print(data_frame$X1)
+```
