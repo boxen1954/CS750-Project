@@ -1,5 +1,5 @@
 ---
-title: "Project Deliverable"
+title: "Machine-in-the-Loop: a Machine Learning Exploration"
 author: "Ping Ng Chong, Haiyao Ni, Ethan Paulsen"
 date: "April 16, 2019"
 output: pdf_document
@@ -8,16 +8,42 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+##Motivation
+
+The motivation behind this project is being able to parse through data generated data from four satellites around the globe and determine which data should be downloaded back down to Earth for further study. Since the orbits of the satellites only allow for 2% to 4% of the data to be transmitted back to Earth, a machine learning method needs to be implemented in order for the data to be parsed in real-time, and eliminate the need for a scientist-in-the-loop, or SITL. 
+
+##Related Works
+
+##Evaluation Criteria
+
+##Methods Evaluated
 
 ```{r dataset}
   library(dplyr)
-  x <- read.csv("spaceDataset.csv")
-  data_frame = data.frame(x)
-  data_frame$Time <- NULL
-  data_frame$Priority <- NULL
-  data_frame$Status <- NULL
-  data_frame$Comments <- NULL
-  data_frame$X1 <- nrow(1:data_frame)
-  print(colnames(data_frame))
-  print(data_frame$X1)
+  name_mms <- "mss_20151026.csv"
+  name_mitl <- "mitl_20151026.csv"
+  data <- read.csv("spaceDataset.csv")
+  data.frame <- data.frame(data)
+  data.frame$X1 <- 1:nrow(data.frame)
+  data.frame2 <- data.frame(data$DES.N, data$FGM.Bt, data$DES.T_para, data$DES.T_perp, data$Selected)
+  data.frame2 <- na.omit(data.frame2)
+  lm.fit <- lm(data.frame2$DES.N ~ data.frame2$FGM.Bt, data = data.frame2[1:1000,])
+  summary(lm.fit)
+  
+  library(ggplot2)
+  ggplot(data.frame2[1:1000,], mapping = aes(x = data.frame2$data.DES.N[1:1000], y = data.frame2$data.FGM.Bt[1:1000])) + geom_point() + geom_smooth(method = "lm", formula = data.frame2$DES.N ~ data.frame2$FGM.Bt,   data = data.frame2[1:1000], color = "red")
+  
+  ggplot(data.frame2[1:1000,], mapping = aes(x = data.frame2$data.DES.N[1:1000], y = data.frame2$data.FGM.Bt[1:1000], color = data.frame2$DES.T_perp[1:1000])) + geom_point()
 ```
+
+##Recommended Methods
+
+##Analysis of Results
+
+
+
+##NOTES
+Try using these functions (using DES.N and FGM.Bt):
+  - PCA
+  - K-Means
+  - SVM
