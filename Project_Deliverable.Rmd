@@ -20,20 +20,34 @@ The motivation behind this project is being able to parse through data generated
 
 ```{r dataset}
   library(dplyr)
-  name_mms <- "mss_20151026.csv"
-  name_mitl <- "mitl_20151026.csv"
   data <- read.csv("spaceDataset.csv")
+  test <- read.csv("testset1.csv")
   data.frame <- data.frame(data)
   data.frame$X1 <- 1:nrow(data.frame)
-  data.frame2 <- data.frame(data$DES.N, data$FGM.Bt, data$DES.T_para, data$DES.T_perp, data$Selected)
-  data.frame2 <- na.omit(data.frame2)
-  lm.fit <- lm(data.frame2$DES.N ~ data.frame2$FGM.Bt, data = data.frame2[1:1000,])
-  summary(lm.fit)
-  
+  DES.N <- data.frame$DES.N
+  FGM.Bt <- data.frame$FGM.Bt
+  DIS.N <- data.frame$DIS.N
+  DES.T_para <- data.frame$DES.T_para
+  DES.T_perp <- data.frame$DES.T_perp
+  Selected <- data.frame$Selected
+```
+```{r fit}  
+  fit <- lm(Selected ~ DES.N + FGM.Bt + DES.T_para + DES.T_perp, data = data.frame)
+  predict_lm <- predict(fit, test, interval = "predict")
+```
+
+```{r binomial}
+  glm.fit <- glm(Selected ~ DES.N + FGM.Bt + DES.T_para + DES.T_perp, family = binomial(), data = data.frame)
+  summary(glm.fit)
+  predict_glm <- predict(glm.fit, test, interval = "predict")
+```
+```{r ggplot}
   library(ggplot2)
-  ggplot(data.frame2[1:1000,], mapping = aes(x = data.frame2$data.DES.N[1:1000], y = data.frame2$data.FGM.Bt[1:1000])) + geom_point() + geom_smooth(method = "lm", formula = data.frame2$DES.N ~ data.frame2$FGM.Bt,   data = data.frame2[1:1000], color = "red")
+  ggplot(data.frame, mapping = aes(x = DES.N, y = Selected)) + geom_point() + geom_smooth(method = "lm", mapping = aes(x = DES.N, y = Selected), se = FALSE)
+  ggplot(data.frame, mapping = aes(x = FGM.Bt, y = Selected)) + geom_point() + geom_smooth(method = "glm", mapping = aes(x = FGM.Bt, y = Selected), se = FALSE)
   
-  ggplot(data.frame2[1:1000,], mapping = aes(x = data.frame2$data.DES.N[1:1000], y = data.frame2$data.FGM.Bt[1:1000], color = data.frame2$DES.T_perp[1:1000])) + geom_point()
+  
+  
 ```
 
 ##Recommended Methods
