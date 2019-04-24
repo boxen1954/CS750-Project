@@ -18,28 +18,63 @@ The motivation behind this project is being able to parse through data generated
 
 ##Methods Evaluated
 
-```{r dataset}
+```{r dataset, echo = FALSE}
   library(dplyr)
   data <- read.csv("spaceDataset.csv")
   test <- read.csv("testset1.csv")
+  test <- na.omit(test)
   data.frame <- data.frame(data)
+  data.frame <- na.omit(data.frame)
   data.frame$X1 <- 1:nrow(data.frame)
+```
+```{r frames, echo = FALSE}
   DES.N <- data.frame$DES.N
   FGM.Bt <- data.frame$FGM.Bt
   DIS.N <- data.frame$DIS.N
   DES.T_para <- data.frame$DES.T_para
   DES.T_perp <- data.frame$DES.T_perp
   Selected <- data.frame$Selected
+  test.frame <- data.frame[, which(!names(data.frame) %in% c("Time", "Priority", "Comments", "Selected", "X1", "X"))]
+  print(names(test.frame))
+  print(names(data.frame))
 ```
-```{r fit}  
-  fit <- lm(Selected ~ DES.N + FGM.Bt + DES.T_para + DES.T_perp, data = data.frame)
-  predict_lm <- predict(fit, test, interval = "predict")
+```{r linear, echo = FALSE}  
+  fit <- lm(data.frame$Selected ~ ., data = test.frame)
+  predict_lm <- predict(fit, test.frame, interval = "predict")
+  check <- data.frame(ObservationID = data.frame$X1, Selected = predict_lm[,1])
+  for(i in 1:nrow(data.frame)){ if(predict_lm[i] < -1) predict_lm[i] = 0 else predict_lm[i] = 1 }
+  
+  library(caret)
+  conf <- table(factor(check$Selected, levels=max(Selected):min(Selected)), 
+      factor(Selected, levels=max(Selected):min(Selected)))
+  dimnames(conf) <- list(c("pos", "neg"), c("pos", "neg"))
+  names(dimnames(conf)) <- c("predicted", "observed")
+  conf
+  log_acc = (conf[1,1] + conf[2,2]) / sum(conf)
+  log_acc
+  
 ```
 
-```{r binomial}
-  glm.fit <- glm(Selected ~ DES.N + FGM.Bt + DES.T_para + DES.T_perp, family = binomial(), data = data.frame)
-  summary(glm.fit)
-  predict_glm <- predict(glm.fit, test, interval = "predict")
+```{r logistic}
+  glm.fit <- glm(Selected ~ . - Time - Priority - Comments - Selected - X1 - X, family = "binomial", data = data.frame)
+  #summary(glm.fit)
+  predict_glm <- predict(glm.fit, data = test.frame, interval = "predict")
+  for(i in 1:nrow(data.frame)){ if(predict_glm[i] < 0) predict_glm[i] = 0 else predict_glm[i] = 1 }
+  check <- data.frame(ObservationID = data.frame$X1, Selected = predict_glm)
+  
+  #write.csv(check, "testLogistic.csv")
+  
+  conf <- table(factor(check$Selected, levels=max(Selected):min(Selected)), 
+      factor(Selected, levels=max(Selected):min(Selected)))
+  dimnames(conf) <- list(c("pos", "neg"), c("pos", "neg"))
+  names(dimnames(conf)) <- c("predicted", "observed")
+  conf
+  log_acc = (conf[1,1] + conf[2,2]) / sum(conf)
+  log_acc
+  
+  
+  
+  
 ```
 ```{r ggplot}
   library(ggplot2)
