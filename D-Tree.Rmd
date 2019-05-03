@@ -1,0 +1,149 @@
+---
+title: "SITL Project"
+author: "Pingng(Benny) Chong"
+date: "April 18, 2019"
+output: pdf_document
+---
+
+
+
+```{r}
+library(glmnetUtils)
+library(e1071)
+library(ggfortify)
+library(tree)
+library(randomForest)
+library(dplyr)
+library(leaps)
+library(rpart)
+
+
+mms_testset1 <- read.csv(file = "C:/Users/hkcyf/Desktop/UNHSEM2/ML/Project/testset1.csv")
+
+
+sitl <- read.csv(file = "C:/Users/hkcyf/Desktop/UNHSEM2/ML/Project/merged_201701-03.csv")
+
+
+
+#mms= mms_testset1 %>% mutate(X1+1)
+
+#lm.fit <- lm(DES.N~FGM.Bt, data = mms_testset1 )
+#log.odds <- predict(glm.fit, mms.target)
+#probabilities <- exp(log.odds) / (1 + exp(log.odds))
+#probabilities <- predict(glm.fit, mms.target, type="response")
+
+
+new_merge= subset(sitl, select = -c(1,2,19,21))
+#write.csv(new_merge, 'new_merge.csv')
+#merge_matrix <-as.matrix(sapply(new_merge, as.numeric)) 
+#summary(lm.fit)
+
+#summary(new_merge)
+
+#df = subset(mms_testset1, select = -c(1,21))
+
+#tree.test= tree(Selected~.-Priority, new_merge)
+
+#pca.out = prcomp(df, scale=TRUE, center = TRUE)
+#autoplot(pca.out, loadings = TRUE, loadings.label = TRUE)
+#summary(pca.out)
+new_bestsub <- regsubsets(Selected ~ ., data = new_merge, nvmax = 16)
+coef(new_bestsub ,8)
+summary(new_bestsub)
+attach(new_merge)
+#Choose=ifelse (Selected >0, "Yes","No")
+#Treeset = data.frame(new_merge, Choose)
+#model_t<-tree(Choose ~ DES.N+DES.T_para+DES.T_perp+FGM.Bz+FGM.Bt+DIS.Vz+DIS.T_para+DIS.T_perp , Treeset)
+
+#summary(model_t)
+
+#plot(model_t)
+#text(model_t ,pretty =0)
+
+#model_t
+
+
+#train.id= sample.int(nrow(Treeset),nrow(Treeset)*0.7)
+#test.id= sample.int(nrow(Treeset),nrow(Treeset)*0.3)
+
+#Tree.train= Treeset[train.id,]
+
+#model_t<-rpart(Selected ~ DES.N+DES.T_para+DES.T_perp+FGM.Bz+FGM.Bt+DIS.Vz+DIS.T_para+DIS.T_perp , method = "class", data= new_merge)
+
+
+
+#train=sample (1: nrow(Treeset ), 200)
+
+#Choose.test=Choose[-train ]
+#Tree.test= Treeset[-train]
+
+#model_t<-tree(Choose ~ DES.N+DES.T_para+DES.T_perp+FGM.Bz+FGM.Bt+DIS.Vz+DIS.T_para+DIS.T_perp , Treeset, subset =train.id )
+
+#tree.pred<-predict(model_t, Tree.test, type ="class")
+
+#table(tree.pred ,Choose.test)
+
+
+```
+First of all, we use try to find the importance of attributes to use such that we can avoid using all the features.
+FGM.Bz and DIS.T_prep are the most important, besides, we also need other features.
+
+
+
+
+```{r}
+set.seed(123)
+library(tree)
+traintree=sample (1: nrow(new_merge), nrow(new_merge)/2)
+
+#Tree.train= new_merge[train.id,]
+Tree.test= new_merge[-traintree,]
+
+model_t<-rpart(Selected ~DES.N+DES.T_para+DES.T_perp+FGM.Bz+FGM.Bt+DIS.Vz+DIS.T_para+DIS.T_perp, method ="class", data = new_merge) 
+
+
+tree.pred<-predict(model_t, mms_testset1, type ="class")
+#table(tree.pred ,Tree.test$Selected)
+
+plot(model_t )
+text(model_t ,pretty =0)
+```
+
+(177337+1108)/(177337+18700+584+1108)= 90%
+It looks good, but it does not give us enoguhe "selected" prediction.
+For 0(not selected), we quite accturately predict the true positive, however, our prediction has missed lots of 1(selected), we need to improve it.
+
+
+Let's see what if we let the tree grow further using rpart.control
+
+
+
+
+```{r}
+set.seed(123)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+set.seed(123)
+library(tree)
+
+model_t2<-rpart(Selected ~DES.N+DES.T_para+DES.T_perp+FGM.Bz+FGM.Bt+DIS.Vz+DIS.T_para+DIS.T_perp, method ="class", data = new_merge, control=rpart.control(minsplit=2, cp=0)) 
+
+
+tree.pred2<-predict(model_t2,  Tree.test, type ="class")
+table(tree.pred2 ,Tree.test$Selected)
+
+
+```
+
+It seems that the result is much better, however, we still do not know whether there are overfitting problems. Nevertheless, it shows that using decision tree is a good way to go.
+
+```{r}
+library(dplyr)
+
+tree.pred3<-predict(model_t2,  mms_testset1, type ="class")
+output <- data.frame(ObservationId=mms_testset1$X1,Selected=c(tree.pred3)-1)
+write.csv(output, 'C:/Users/hkcyf/Desktop/mitl2019_4_24_group6.csv',  row.names = FALSE)
+
+```
+

@@ -4,24 +4,32 @@ author: "Ping Ng Chong, Haiyao Ni, Ethan Paulsen"
 date: "April 16, 2019"
 output: pdf_document
 ---
+<!---Note: D-Tree.rmd is used to make the decision tree portion of this project.--->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 ##Motivation
-
 The motivation behind this project is being able to parse through data generated data from four satellites around the globe and determine which data should be downloaded back down to Earth for further study. Since the orbits of the satellites only allow for 2% to 4% of the data to be transmitted back to Earth, a machine learning method needs to be implemented in order for the data to be parsed in real-time, and eliminate the need for a scientist-in-the-loop, or SITL. 
 
-##Related Works
-
-##Evaluation Criteria
 
 ##Methods Evaluated
 
 ```{r dataset, echo = FALSE}
+  options(warn=-1)
+  library(glmnetUtils)
+  library(e1071)
+  library(ggfortify)
+  library(randomForest)
   library(dplyr)
-  data <- read.csv("spaceDataset.csv")
+  library(leaps)
+  library(rpart)
+  library(rpart.plot)
+  library(RColorBrewer)
+  set.seed(123)
+  data <- read.csv("merged_201701-03.csv")
   test <- read.csv("testset1.csv")
+  sitl <- read.csv(file = "merged_201701-03.csv")
   test <- na.omit(test)
   data.frame <- data.frame(data)
   data.frame <- na.omit(data.frame)
@@ -35,64 +43,152 @@ The motivation behind this project is being able to parse through data generated
   DES.T_perp <- data.frame$DES.T_perp
   Selected <- data.frame$Selected
   test.frame <- data.frame[, which(!names(data.frame) %in% c("Time", "Priority", "Comments", "Selected", "X1", "X"))]
-  print(names(test.frame))
-  print(names(data.frame))
 ```
-```{r linear, echo = FALSE}  
-  fit <- lm(data.frame$Selected ~ ., data = test.frame)
-  predict_lm <- predict(fit, test.frame, interval = "predict")
-  check <- data.frame(ObservationID = data.frame$X1, Selected = predict_lm[,1])
-  for(i in 1:nrow(data.frame)){ if(predict_lm[i] < -1) predict_lm[i] = 0 else predict_lm[i] = 1 }
+###Logistic Regression
+```{r logistic}
+
+  glm.fit <- glm(Selected ~ DES.N + FGM.Bt, family = "binomial", data = data.frame)
+  predict_glm <- predict(glm.fit, data = test.frame, interval = "predict")
   
-  library(caret)
+  for(i in 1:nrow(data.frame)){ if(predict_glm[i] < 0) predict_glm[i] = 0 else predict_glm[i] = 1 }
+  
+  check <- data.frame(ObservationID = data.frame$X1, Selected = predict_glm)
   conf <- table(factor(check$Selected, levels=max(Selected):min(Selected)), 
       factor(Selected, levels=max(Selected):min(Selected)))
   dimnames(conf) <- list(c("pos", "neg"), c("pos", "neg"))
   names(dimnames(conf)) <- c("predicted", "observed")
   conf
-  log_acc = (conf[1,1] + conf[2,2]) / sum(conf)
-  log_acc
   
-```
-
-```{r logistic}
-  glm.fit <- glm(Selected ~ . - Time - Priority - Comments - Selected - X1 - X, family = "binomial", data = data.frame)
-  #summary(glm.fit)
+  log_acc = (conf[1,1] + conf[2,2]) / sum(conf)
+  paste( "Accuracy of Logistic Regression Using FGM.BT and DES.N: ", round(log_acc, 3))
+  cat("\n")
+  
+  glm.fit <- glm(Selected ~ DES.N + FGM.Bt + DES.T_para + DES.T_perp, family = "binomial", data = data.frame)
   predict_glm <- predict(glm.fit, data = test.frame, interval = "predict")
   for(i in 1:nrow(data.frame)){ if(predict_glm[i] < 0) predict_glm[i] = 0 else predict_glm[i] = 1 }
   check <- data.frame(ObservationID = data.frame$X1, Selected = predict_glm)
-  
-  #write.csv(check, "testLogistic.csv")
-  
   conf <- table(factor(check$Selected, levels=max(Selected):min(Selected)), 
       factor(Selected, levels=max(Selected):min(Selected)))
   dimnames(conf) <- list(c("pos", "neg"), c("pos", "neg"))
   names(dimnames(conf)) <- c("predicted", "observed")
   conf
   log_acc = (conf[1,1] + conf[2,2]) / sum(conf)
-  log_acc
-  
-  
-  
+  paste( "Accuracy of Logistic Regression Using FGM.Bt and All DES Features: ", round(log_acc, 3))
+  cat("\n")
+
+  glm.fit <- glm(Selected ~ . - Time - Priority - Comments - Selected - X1 - X, family = "binomial", data = data.frame)
+  predict_glm <- predict(glm.fit, data = test.frame, interval = "predict")
+  for(i in 1:nrow(data.frame)){ if(predict_glm[i] < 0) predict_glm[i] = 0 else predict_glm[i] = 1 }
+  check <- data.frame(ObservationID = data.frame$X1, Selected = predict_glm)
+  conf <- table(factor(check$Selected, levels=max(Selected):min(Selected)), 
+      factor(Selected, levels=max(Selected):min(Selected)))
+  dimnames(conf) <- list(c("pos", "neg"), c("pos", "neg"))
+  names(dimnames(conf)) <- c("predicted", "observed")
+  conf
+  log_acc = (conf[1,1] + conf[2,2]) / sum(conf)
+  paste( "Accuracy of Logistic Regression Using All Features: ", round(log_acc, 3))
+  cat("\n")
   
 ```
-```{r ggplot}
-  library(ggplot2)
-  ggplot(data.frame, mapping = aes(x = DES.N, y = Selected)) + geom_point() + geom_smooth(method = "lm", mapping = aes(x = DES.N, y = Selected), se = FALSE)
-  ggplot(data.frame, mapping = aes(x = FGM.Bt, y = Selected)) + geom_point() + geom_smooth(method = "glm", mapping = aes(x = FGM.Bt, y = Selected), se = FALSE)
+Using a stripped version of the training set, we tested the accuracy of our model using 3 different feature groupings: the ones recommended to us on Piazza (FGM.Bt and DES.N), FGM.Bt and all DES features, and all of the features. Creating a new binomial fit line for each set of features and creating a new prediction for each of them yielded little difference, however the highest accuracy was with all of the features with 90.1% accuracy. This features tended to classify less ones, especially as the amount of features decreased.
+
+###SVM
+```{r svm}
+
+
+  new_merge= subset(sitl, select = -c(1,2,19,21))
   
+  best_subset = regsubsets(Selected ~ ., data = new_merge, nvmax = 16)
+
+  plot(best_subset)
+  summary(best_subset)
   
+  svm.fit_linear <- svm(Selected[1:50000] ~ FGM.Bt[1:50000] + FGM.Bz[1:50000] + DIS.N[1:50000] + DIS.T_perp[1:50000], kernel = "linear", data = sitl[1:50000,], type = "C-classification")
+  summary(svm.fit_linear)
+  table(predict = predict(svm.fit_linear, sitl[1:50000,]), truth = sitl$Selected[1:50000])
   
+  svm.fit_poly <- svm(Selected[1:50000] ~ FGM.Bt[1:50000] + FGM.Bz[1:50000] + DIS.N[1:50000] + DIS.T_perp[1:50000], kernel = "polynomial", data = sitl[1:50000,], type = "C-classification")
+  summary(svm.fit_poly)
+  table(predict = predict(svm.fit_poly, sitl[1:50000,]), truth = sitl$Selected[1:50000])
+
+  svm.fit_radial <- svm(Selected[1:50000] ~ FGM.Bt[1:50000] + FGM.Bz[1:50000] + DIS.N[1:50000] + DIS.T_perp[1:50000], kernel = "radial", data = sitl[1:50000,], type = "C-classification")
+  #summary(svm.fit_radial)
+  table.fit <- table(predict = predict(svm.fit_radial, sitl[1:50000,]), truth = sitl$Selected[1:50000])
+  svm_acc = table.fit[1,1] + table.fit[2,2] / sum(table.fit)
+
+```
+
+Two things needed to be determined for SVM: the kernel to be used, and the subset of classifiers we want to try. Using the best subset algorithm, we generated a list of factors that worked best with out Selected classification, and although the best one used only one of the attributes (DIS.T_perp), we decided that it would be better to incorporate some other data, such as the magnetic field strength and the density of ions. Through testing, the linear classifier was unable to choose a single valid magnetopause find, so that is deemed removed. The polynomial kernel fared no better, and determined only 299 magnetopause finds. However, the radial kernel proved to be superior for this case, finding 784 positive magnetopauses in the training set. However, it only had an 87.378% accuracy, therefore it was not as accurate as it could be vs other possible methods.
+
+###Decision Tree
+
+```{r}
+
+
+mms_testset1 <- read.csv(file = "testset1.csv")
+
+
+sitl <- read.csv(file = "merged_201701-03.csv")
+
+
+new_merge= subset(sitl, select = -c(1,2,19,21))
+
+new_bestsub <- regsubsets(Selected ~ ., data = new_merge, nvmax = 16)
+coef(new_bestsub ,8)
+summary(new_bestsub)
+attach(new_merge)
+```
+First of all, we use try to find the importance of attributes to use such that we can avoid using all the features.
+FGM.Bz and DIS.T_prep are the most important, besides, we also need other features.
+
+
+
+
+```{r}
+traintree=sample (1: nrow(new_merge), nrow(new_merge)/2)
+
+Tree.test= new_merge[-traintree,]
+
+model_t<-rpart(Selected ~DES.N+DES.T_para+DES.T_perp+FGM.Bz+FGM.Bt+DIS.Vz+DIS.T_para+DIS.T_perp, method ="class", data = new_merge) 
+
+
+tree.pred<-predict(model_t, mms_testset1, type ="class")
+
+plot(model_t )
+text(model_t ,pretty =0)
+```
+
+(177337+1108)/(177337+18700+584+1108)= 90%
+It looks good, but it does not give us enough "selected" prediction.
+For 0(not selected), we quite accturately predict the true positive, however, our prediction has missed lots of 1(selected), we need to improve it.
+
+
+Let's see what if we let the tree grow further using rpart.control
+
+
+
+
+```{r}
+set.seed(123)
+
+model_t2<-rpart(Selected ~DES.N+DES.T_para+DES.T_perp+FGM.Bz+FGM.Bt+DIS.Vz+DIS.T_para+DIS.T_perp, method ="class", data = new_merge, control=rpart.control(minsplit=2, cp=0)) 
+
+
+tree.pred2<-predict(model_t2,  Tree.test, type ="class")
+table(tree.pred2 ,Tree.test$Selected)
+
+
+```
+
+It seems that the result is much better, however, we still do not know whether there are overfitting problems. Nevertheless, it shows that using decision tree is a good way to go.
+
+```{r}
+tree.pred3<-predict(model_t2,  mms_testset1, type ="class")
+output <- data.frame(ObservationId=mms_testset1$X1,Selected=c(tree.pred3)-1)
+write.csv(output, 'mitl2019_4_24_group6.csv',  row.names = FALSE)
+
 ```
 
 ##Recommended Methods
 
-##Analysis of Results
-
-
-
-##NOTES
-Try using these functions (using DES.N and FGM.Bt):
-  - PCA
-  - K-Means
-  - SVM
+Since the dataset is not easily linearly separable, nor is there a consistent way that the data is classified as "selected", logistic regression is probably not the best ideas for this type of classification. Even SVM, which is built to handle datasets that split in odd hyperplanes, did not have the best accuracy out of all the models. A method like decision trees would be better, since classification can occur on a more diverse set of data, such as the given training and test sets.
